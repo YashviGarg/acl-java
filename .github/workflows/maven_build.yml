@@ -1,0 +1,73 @@
+name: Java CI/CD with Maven
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Build with Maven
+        run: mvn -f ACL_YashviGarg/pom.xml clean compile
+
+      - name: Run Tests
+        run: mvn -f ACL_YashviGarg/pom.xml test -X
+
+      - name: Run Checkstyle (Fail on violations)
+        run: mvn -f ACL_YashviGarg/pom.xml checkstyle:check
+
+      - name: Generate Checkstyle Report
+        run: |
+          mvn -f ACL_YashviGarg/pom.xml site
+          mvn -f ACL_YashviGarg/pom.xml checkstyle:checkstyle
+
+      - name: Generate Javadoc
+        run: mvn -f ACL_YashviGarg/pom.xml javadoc:javadoc -X
+
+      - name: Run Static Analysis
+        run: |
+          mvn -f ACL_YashviGarg/pom.xml spotbugs:spotbugs -X
+          mvn -f ACL_YashviGarg/pom.xml pmd:pmd -X
+
+      - name: Package JAR
+        run: mvn -f ACL_YashviGarg/pom.xml package -X
+
+      - name: Upload Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: |
+            ACL_YashviGarg/target/*
+          retention-days: 10
+          if-no-files-found: error
+
+      - name: Rename Main JAR
+        run: |
+          ORIGINAL_JAR=$(ls ACL_YashviGarg/target/ACL_YashviGarg-*.jar | grep -v '\-javadoc\.jar\|\-sources\.jar' | head -n 1)
+          RENAMED_JAR=ACL_YashviGarg/target/ac.jar
+          mv $ORIGINAL_JAR $RENAMED_JAR
+          echo "Renamed main JAR to: $RENAMED_JAR"
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: ac
+          path: ACL_YashviGarg/target/ac.jar
+          retention-days: 10
+          if-no-files-found: error
